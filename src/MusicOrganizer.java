@@ -4,7 +4,7 @@
  * @date Winter break
  * Description: This program is a music organizer that sorts and organizes a music library folder's mp3 files into appropriate directories.
  * Key Features:
- * 			--Uses MP3AGIC Library for TAG editing
+ * 			--Uses JAudioTagger (Use to be MP3AGIC) Library for TAG editing
  * 			--Multiple Threaded: Uses one Executer, a number of threads equal to number of processors, and a variable number of Runnable worker.
  * 			--Uses semaphore for keeping count of number of worker tasks
  * 			--Includes a good chunk of error checking with System.out.println
@@ -80,6 +80,11 @@ public class MusicOrganizer implements Runnable{
 		}
 	}
 	
+	/**
+	 * Description: Starts organizing the music directory
+	 * 
+	 * @param musicDirPath The path of the directory to organize
+	 */
 	public MusicOrganizer(Path musicDirPath) {
 		this.musicDir = musicDirPath;
 		this.rootMusicFolderPath = MusicOrganizerMain.rootMusicPath;
@@ -120,24 +125,15 @@ public class MusicOrganizer implements Runnable{
 				ID3v24Tag id3v24 = (ID3v24Tag) musicFile.getID3v2TagAsv24();
 				songArtist = id3v24.getFirst(ID3v24Frames.FRAME_ID_ARTIST);
 				songTitle =  id3v24.getFirst(ID3v24Frames.FRAME_ID_TITLE);
-				try { //Necessary because JAudioTagger has a bug that it will return either the string genre or the string int id for the genre
-					songGenre3v24 =  GenreTypes.getInstanceOf().getValueForId(Integer.valueOf(id3v24.getFirst(ID3v24Frames.FRAME_ID_GENRE)));
-				} catch(NumberFormatException e) {
-					songGenre3v24 = id3v24.getFirst(ID3v24Frames.FRAME_ID_GENRE);
-				}
-				songAlbum =  id3v24.getFirst(ID3v24Frames.FRAME_ID_ALBUM);
+				songAlbum = id3v24.getFirst(ID3v24Frames.FRAME_ID_ALBUM);
+				songGenre3v24 = findGenreString(id3v24.getFirst(ID3v24Frames.FRAME_ID_GENRE));
 			}
 			else if(musicFile.hasID3v1Tag()) {
 				Tag tag = musicFile.getTag();
 				songArtist = tag.getFirst(FieldKey.ARTIST);
 				songTitle =  tag.getFirst(FieldKey.TITLE);
-				try {
-					songGenre3v24 = GenreTypes.getInstanceOf().getValueForId(Integer.valueOf(tag.getFirst(ID3v24Frames.FRAME_ID_GENRE)));
-				} catch(NumberFormatException e) {
-					songGenre3v24 = tag.getFirst(ID3v24Frames.FRAME_ID_GENRE);
-				}
-					
 				songAlbum =  tag.getFirst(FieldKey.ALBUM);
+				songGenre3v24 = findGenreString(tag.getFirst(FieldKey.GENRE));
 			}
 			else {
 				throw new TagException();
@@ -167,6 +163,25 @@ public class MusicOrganizer implements Runnable{
 			//Set ID3v24 Tag to newly created ID3v2 tag
 			musicFile.setID3v2Tag(newID3v24Tag);
 			return true;
+	}
+	
+	/**
+	 * Description: This is made because JAudioTagger is VERY buggy in finding Genre
+	 * JAudioTagger will either return a String Genre, a String Genre Number, or a String Genre Number in paranthesis...
+	 * This function will convert
+	 * 
+	 * @return the Genre String that is not the number ID
+	 */
+	private String findGenreString(String songGenre) {
+		try {
+			if(songGenre.charAt(0) == '(') {
+				songGenre = songGenre.substring(1, songGenre.length() - 1);
+			}
+			String songGenreString = GenreTypes.getInstanceOf().getValueForId(Integer.valueOf(songGenre));
+			return songGenreString;
+		} catch(NumberFormatException e) {
+			return songGenre;
+		}
 	}
 		
 	/**
@@ -232,9 +247,10 @@ public class MusicOrganizer implements Runnable{
 	}
 	
 	/**
+	 * Description: Creates the new file name from the mp3 tags
 	 * 
-	 * @param mp3File
-	 * @return
+	 * @param mp3File The MP3File used to get the tags
+	 * @return The String of the new file name based on tag information
 	 */
 	private String createNewFileName(MP3File mp3File) {
 		String artist = null;
@@ -273,11 +289,7 @@ public class MusicOrganizer implements Runnable{
 		
 		
 		if(MusicOrganizerMain.option1.compareTo("Genre") == 0) {
-			try { //The JAudioTagger library is inconsistent will returning string number or the string genre
-				newPath = newPath.concat("\\" + GenreTypes.getInstanceOf().getValueForId(Integer.valueOf(tag.getFirst(ID3v24Frames.FRAME_ID_GENRE))));
-			} catch (NumberFormatException ignore) {
-				newPath = newPath.concat("\\" + tag.getFirst(ID3v24Frames.FRAME_ID_GENRE));
-			}
+			newPath = newPath.concat("\\" + findGenreString(tag.getFirst(ID3v24Frames.FRAME_ID_GENRE)));
 		}
 		else if(MusicOrganizerMain.option1.compareTo("Artist") == 0) {
 			newPath = newPath.concat("\\"+tag.getFirst(ID3v24Frames.FRAME_ID_ARTIST));
@@ -292,11 +304,7 @@ public class MusicOrganizer implements Runnable{
 		else if(MusicOrganizerMain.option1.compareTo("Null") == 0) {
 		}
 		if(MusicOrganizerMain.option2.compareTo("Genre") == 0) {
-			try { //The JAudioTagger library is inconsistent will returning string number or the string genre
-				newPath = newPath.concat("\\" + GenreTypes.getInstanceOf().getValueForId(Integer.valueOf(tag.getFirst(ID3v24Frames.FRAME_ID_GENRE))));
-			} catch (NumberFormatException ignore) {
-				newPath = newPath.concat("\\" + tag.getFirst(ID3v24Frames.FRAME_ID_GENRE));
-			}
+			newPath = newPath.concat("\\" + findGenreString(tag.getFirst(ID3v24Frames.FRAME_ID_GENRE)));
 		}
 		else if(MusicOrganizerMain.option2.compareTo("Artist") == 0) {
 			newPath = newPath.concat("\\"+tag.getFirst(ID3v24Frames.FRAME_ID_ARTIST));
@@ -311,11 +319,7 @@ public class MusicOrganizer implements Runnable{
 		else if(MusicOrganizerMain.option2.compareTo("Null") == 0) {
 		}
 		if(MusicOrganizerMain.option3.compareTo("Genre") == 0) {
-			try { //The JAudioTagger library is inconsistent will returning string number or the string genre
-				newPath = newPath.concat("\\" + GenreTypes.getInstanceOf().getValueForId(Integer.valueOf(tag.getFirst(ID3v24Frames.FRAME_ID_GENRE))));
-			} catch (NumberFormatException ignore) {
-				newPath = newPath.concat("\\" + tag.getFirst(ID3v24Frames.FRAME_ID_GENRE));
-			}
+			newPath = newPath.concat("\\" + findGenreString(tag.getFirst(ID3v24Frames.FRAME_ID_GENRE)));
 		}
 		else if(MusicOrganizerMain.option3.compareTo("Artist") == 0) {
 			newPath = newPath.concat("\\"+tag.getFirst(ID3v24Frames.FRAME_ID_ARTIST));
@@ -330,56 +334,6 @@ public class MusicOrganizer implements Runnable{
 		else if(MusicOrganizerMain.option3.compareTo("Null") == 0) {
 		}
 		return newPath;
-		/* MP3AGIC LIBRARY CODE
-		String newPath = rootMusicFolderPath.normalize().toString();
-		
-		if(MusicOrganizerMain.option1.compareTo("Genre") == 0) {
-			newPath = newPath.concat("\\"+mp3File.getId3v2Tag().getGenreDescription());
-		}
-		else if(MusicOrganizerMain.option1.compareTo("Artist") == 0) {
-			newPath = newPath.concat("\\"+mp3File.getId3v2Tag().getArtist());
-		}	
-		else if(MusicOrganizerMain.option1.compareTo("Album") == 0) {
-			if(mp3File.getId3v2Tag().getAlbum() == null) {
-				newPath = newPath.concat("\\Unknown Album");
-			}
-			else
-				newPath = newPath.concat("\\"+mp3File.getId3v2Tag().getAlbum());
-		}
-		else if(MusicOrganizerMain.option1.compareTo("Null") == 0) {
-		}
-		if(MusicOrganizerMain.option2.compareTo("Genre") == 0) {
-			newPath = newPath.concat("\\"+mp3File.getId3v2Tag().getGenreDescription());
-		}
-		else if(MusicOrganizerMain.option2.compareTo("Artist") == 0) {
-			newPath = newPath.concat("\\"+mp3File.getId3v2Tag().getArtist());
-		}	
-		else if(MusicOrganizerMain.option2.compareTo("Album") == 0) {
-			if(mp3File.getId3v2Tag().getAlbum() == null) {
-				newPath = newPath.concat("\\Unknown Album");
-			}
-			else
-				newPath = newPath.concat("\\"+mp3File.getId3v2Tag().getAlbum());
-		}
-		else if(MusicOrganizerMain.option2.compareTo("Null") == 0) {
-		}
-		if(MusicOrganizerMain.option3.compareTo("Genre") == 0) {
-			newPath = newPath.concat("\\"+mp3File.getId3v2Tag().getGenreDescription());
-		}
-		else if(MusicOrganizerMain.option3.compareTo("Artist") == 0) {
-			newPath = newPath.concat("\\"+mp3File.getId3v2Tag().getArtist());
-		}	
-		else if(MusicOrganizerMain.option3.compareTo("Album") == 0) {
-			if(mp3File.getId3v2Tag().getAlbum() == null) {
-				newPath = newPath.concat("\\Unknown Album");
-			}
-			else
-				newPath = newPath.concat("\\"+mp3File.getId3v2Tag().getAlbum());
-		}
-		else if(MusicOrganizerMain.option3.compareTo("Null") == 0) {
-		}
-		return newPath;
-		*/
 	}
 	
 	/**
